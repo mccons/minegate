@@ -14,19 +14,19 @@ It provides zero-copy packet forwarding, smart packet batching, advanced flow co
 ## Installation
 
 ```bash
-go get github.com/<your-username>/minegate
+go get github.com/pozii/minegate
 ```
 
 Then import any package into your Go code:
 
 ```go
-import "github.com/<your-username>/minegate/packet"
-import "github.com/<your-username>/minegate/conn"
-import "github.com/<your-username>/minegate/tunnel"
-import "github.com/<your-username>/minegate/transport"
-import "github.com/<your-username>/minegate/proxy"
-import "github.com/<your-username>/minegate/crypto"
-import "github.com/<your-username>/minegate/compress"
+import "github.com/pozii/minegate/packet"
+import "github.com/pozii/minegate/conn"
+import "github.com/pozii/minegate/tunnel"
+import "github.com/pozii/minegate/transport"
+import "github.com/pozii/minegate/proxy"
+import "github.com/pozii/minegate/crypto"
+import "github.com/pozii/minegate/compress"
 ```
 
 ---
@@ -56,9 +56,9 @@ Create a simple transparent proxy that forwards players to an upstream server:
 package main
 
 import (
-    "github.com/<your-username>/minegate/proxy"
-    "github.com/<your-username>/minegate/transport"
-    "github.com/<your-username>/minegate/tunnel"
+    "github.com/pozii/minegate/proxy"
+    "github.com/pozii/minegate/transport"
+    "github.com/pozii/minegate/tunnel"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 Swap from TCP to KCP for better performance over lossy networks:
 
 ```go
-import "github.com/<your-username>/minegate/transport"
+import "github.com/pozii/minegate/transport"
 
 kcp := transport.NewKCPTransport()
 ln := tunnel.NewListener(kcp)
@@ -88,7 +88,7 @@ ln.Listen(":25577")
 ### Tunneling over QUIC (0-RTT)
 
 ```go
-import "github.com/<your-username>/minegate/transport"
+import "github.com/pozii/minegate/transport"
 
 quic := transport.NewQUICTransport(tlsConfig)
 dialer := tunnel.NewDialer(quic)
@@ -100,7 +100,7 @@ conn, _ := dialer.Dial("example.com:25577")
 Bypass HTTP proxies by tunneling Minecraft traffic through WebSocket:
 
 ```go
-import "github.com/<your-username>/minegate/transport"
+import "github.com/pozii/minegate/transport"
 
 ws := transport.NewWSTransport()
 dialer := tunnel.NewDialer(ws)
@@ -109,7 +109,7 @@ dialer := tunnel.NewDialer(ws)
 ### Routing through a SOCKS5 Proxy
 
 ```go
-import "github.com/<your-username>/minegate/transport"
+import "github.com/pozii/minegate/transport"
 
 socks := transport.NewSOCKS5Transport("proxy:1080")
 dialer := tunnel.NewDialer(socks)
@@ -120,7 +120,7 @@ dialer := tunnel.NewDialer(socks)
 Run multiple Minecraft sessions over a single underlying connection:
 
 ```go
-import "github.com/<your-username>/minegate/tunnel"
+import "github.com/pozii/minegate/tunnel"
 
 mux := tunnel.NewMux(physicalConn)
 player1, _ := mux.OpenStream()
@@ -132,7 +132,7 @@ player2, _ := mux.OpenStream()
 Forward raw packet bytes without parsing — the fastest relay path:
 
 ```go
-import "github.com/<your-username>/minegate/packet"
+import "github.com/pozii/minegate/packet"
 
 raw, _ := reader.ReadRawPacket()
 writer.WritePacket(packet.Packet{ID: raw.PacketID(), Data: raw.Buf[1:]})
@@ -141,7 +141,7 @@ writer.WritePacket(packet.Packet{ID: raw.PacketID(), Data: raw.Buf[1:]})
 ### Reading and Writing Packets
 
 ```go
-import "github.com/<your-username>/minegate/packet"
+import "github.com/pozii/minegate/packet"
 
 // Write
 p := packet.Packet{ID: 0x00, Data: []byte{...}}
@@ -154,7 +154,7 @@ pkt, _ := reader.ReadPacket()
 ### Encryption (CFB8)
 
 ```go
-import "github.com/<your-username>/minegate/crypto"
+import "github.com/pozii/minegate/crypto"
 
 key, _ := crypto.GenerateKey()
 encrypt, decrypt, _ := crypto.CreateCipher(key)
@@ -164,7 +164,7 @@ encrypt, decrypt, _ := crypto.CreateCipher(key)
 ### Compression
 
 ```go
-import "github.com/<your-username>/minegate/compress"
+import "github.com/pozii/minegate/compress"
 
 compressed, _ := compress.Compress(data)
 decompressed, _ := compress.Decompress(compressed, maxSize)
