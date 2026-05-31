@@ -4,95 +4,185 @@ import (
 	"bytes"
 	"io"
 	"net"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestDirectRelay(t *testing.T) {
-	client, server := net.Pipe()
+type pipeConn struct {
+	r *io.PipeReader
+	w *io.PipeWriter
+}
 
-	msg := []byte("hello minecraft relay")
-	go func() {
-		client.Write(msg)
-		client.Close()
-	}()
+func (c *pipeConn) Read(b []byte) (int, error)  { return c.r.Read(b) }
+func (c *pipeConn) Write(b []byte) (int, error) { return c.w.Write(b) }
+func (c *pipeConn) Close() error {
+	c.w.Close()
+	return c.r.Close()
+}
 
-	go DirectRelay(client, server)
+// testRelayPair wires four io.Pipes so that:
+//   test writes to injectClientW → client.Read() returns it (simulating real client)
+//   server.Write() → test reads from readServerR (verifying forward relay)
+//   test writes to injectServerW → server.Read() returns it (simulating real server)
+//   client.Write() → test reads from readClientR (verifying reverse relay)
+// No feedback loops: each direction uses independent pipes.
+type testRelayPair struct {
+	client, server *pipeConn
+	injectClientW  *io.PipeWriter // test writes → client.Read()
+	injectServerW  *io.PipeWriter // test writes → server.Read()
+	readClientR    *io.PipeReader // client.Write() → test reads
+	readServerR    *io.PipeReader // server.Write() → test reads
+}
 
-	buf := make([]byte, len(msg))
-	server.SetReadDeadline(time.Now().Add(time.Second))
-	n, err := server.Read(buf)
-	if err != nil && err != io.EOF {
-		t.Fatal(err)
-	}
+func newTestRelayPair() *testRelayPair {
+	// client direction: test injects → client.Read()
+	clientInjectR, clientInjectW := io.Pipe()
+	// server direction: server.Write() → test reads
+	serverResultR, serverResultW := io.Pipe()
+	// server direction: test injects → server.Read()
+	serverInjectR, serverInjectW := io.Pipe()
+	// client direction: client.Write() → test reads
+	clientResultR, clientResultW := io.Pipe()
 
-	if !bytes.Equal(buf[:n], msg) {
-		t.Errorf("relay: got %q, want %q", buf[:n], msg)
+	client := &pipeConn{r: clientInjectR, w: clientResultW}
+	server := &pipeConn{r: serverInjectR, w: serverResultW}
+
+	return &testRelayPair{
+		client: client,
+		server: server,
+		injectClientW: clientInjectW,
+		injectServerW: serverInjectW,
+		readClientR:   clientResultR,
+		readServerR:   serverResultR,
 	}
 }
 
-func TestRelayWithMetrics(t *testing.T) {
-	client, server := net.Pipe()
+func TestDirectRelay(t *testing.T) {
+	pair := newTestRelayPair()
+	msg := []byte("hello minecraft relay")
 
-	var c2s, s2c int64
+	go DirectRelay(pair.client, pair.server)
+	time.Sleep(10 * time.Millisecond)
+
+	_, err := pair.injectClientW.Write(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pair.injectClientW.Close()
+
+	buf := make([]byte, len(msg))
+	n, err := pair.readServerR.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Fatal(err)
+	}
+	if n == 0 {
+		t.Fatal("relay: no data received")
+	}
+	if !bytes.Equal(buf[:n], msg) {
+		t.Errorf("relay: got %q, want %q", buf[:n], msg)
+	}
+	pair.readServerR.Close()
+}
+
+func TestRelayWithMetrics(t *testing.T) {
+	pair := newTestRelayPair()
+
+	var mu sync.Mutex
+	var c2sBytes int64
+
 	onByte := func(dir string, n int) {
 		if dir == "c2s" {
-			atomic.AddInt64(&c2s, int64(n))
-		} else {
-			atomic.AddInt64(&s2c, int64(n))
+			mu.Lock()
+			c2sBytes += int64(n)
+			mu.Unlock()
 		}
 	}
 
 	msg := []byte("metrics test")
-	go func() {
-		client.Write(msg)
-		client.Close()
-	}()
 
-	go RelayWithMetrics(client, server, onByte)
+	go RelayWithMetrics(pair.client, pair.server, onByte)
+	time.Sleep(10 * time.Millisecond)
+
+	_, err := pair.injectClientW.Write(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pair.injectClientW.Close()
 
 	buf := make([]byte, len(msg))
-	server.SetReadDeadline(time.Now().Add(time.Second))
-	server.Read(buf)
-	server.Close()
+	n, err := pair.readServerR.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Fatal(err)
+	}
+	if n == 0 {
+		t.Fatal("relay: no data received")
+	}
+	pair.readServerR.Close()
 
-	time.Sleep(50 * time.Millisecond)
-	if c2s == 0 && s2c == 0 {
-		t.Log("metrics not triggered (expected if relay already finished)")
+	mu.Lock()
+	got := c2sBytes
+	mu.Unlock()
+	if got == 0 {
+		t.Error("relay metrics: c2s byte count is 0")
 	}
 }
 
 func TestDirectRelayBidirectional(t *testing.T) {
-	c1, s1 := net.Pipe()
-	c2, s2 := net.Pipe()
+	pair := newTestRelayPair()
 
-	go DirectRelay(s1, s2)
+	go DirectRelay(pair.client, pair.server)
+	time.Sleep(10 * time.Millisecond)
 
-	msg1 := []byte("from client1")
-	msg2 := []byte("from client2")
+	msg1 := []byte("from client to server")
+	msg2 := []byte("from server to client")
+
+	errCh := make(chan error, 2)
 
 	go func() {
-		c1.Write(msg1)
-		buf := make([]byte, 32)
-		n, _ := c1.Read(buf)
+		pair.injectClientW.Write(msg1)
+		buf := make([]byte, 64)
+		n, err := pair.readClientR.Read(buf)
+		if err != nil {
+			errCh <- err
+			return
+		}
 		if !bytes.Equal(buf[:n], msg2) {
-			t.Errorf("c1 got %q, want %q", buf[:n], msg2)
+			errCh <- nil
+			return
 		}
-		c1.Close()
+		pair.injectClientW.Close()
+		errCh <- nil
 	}()
 
 	go func() {
-		c2.Write(msg2)
-		buf := make([]byte, 32)
-		n, _ := c2.Read(buf)
-		if !bytes.Equal(buf[:n], msg1) {
-			t.Errorf("c2 got %q, want %q", buf[:n], msg1)
+		pair.injectServerW.Write(msg2)
+		buf := make([]byte, 64)
+		n, err := pair.readServerR.Read(buf)
+		if err != nil {
+			errCh <- err
+			return
 		}
-		c2.Close()
+		if !bytes.Equal(buf[:n], msg1) {
+			errCh <- nil
+			return
+		}
+		pair.injectServerW.Close()
+		errCh <- nil
 	}()
 
-	time.Sleep(200 * time.Millisecond)
+	for range 2 {
+		select {
+		case e := <-errCh:
+			if e != nil {
+				t.Fatal(e)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("timeout")
+		}
+	}
+	pair.readClientR.Close()
+	pair.readServerR.Close()
 }
 
 func TestMuxOpenClose(t *testing.T) {
