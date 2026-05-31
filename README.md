@@ -219,6 +219,6 @@ Apache License 2.0 — see `LICENSE` file for details.
 
 <p align="center">
   <a href="https://www.buymeacoffee.com/pozii">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/arial-black.png" alt="🍕 Buy me a coffee" height="50">
   </a>
 </p>
