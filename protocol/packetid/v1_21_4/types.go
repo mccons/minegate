@@ -4,16 +4,16 @@
 package v1_21_4
 
 const (
-	// login_serverbound
-	sLoginStart PacketID = 0x00
-	sEncryptionResponse PacketID = 0x01
-	sLoginPluginResponse PacketID = 0x02
+	// handshake_serverbound
+	sHandshake PacketID = 0x00
 
-	// login_clientbound
-	cLoginDisconnect PacketID = 0x00
-	cLoginSuccess PacketID = 0x02
-	cSetCompression PacketID = 0x03
-	cLoginPluginRequest PacketID = 0x04
+	// status_serverbound
+	sStatusRequest PacketID = 0x00
+	sStatusPing PacketID = 0x01
+
+	// status_clientbound
+	cStatusResponse PacketID = 0x00
+	cStatusPong PacketID = 0x01
 
 	// configuration_serverbound
 	sConfigAck PacketID = 0x00
@@ -25,6 +25,27 @@ const (
 	cFinishConfiguration PacketID = 0x02
 	cConfigKeepAlive PacketID = 0x03
 	cConfigSyncData PacketID = 0x04
+
+	// login_serverbound
+	sLoginStart PacketID = 0x00
+	sEncryptionResponse PacketID = 0x01
+	sLoginPluginResponse PacketID = 0x02
+
+	// login_clientbound
+	cLoginDisconnect PacketID = 0x00
+	cLoginSuccess PacketID = 0x02
+	cSetCompression PacketID = 0x03
+	cLoginPluginRequest PacketID = 0x04
+
+	// play_serverbound
+	sKeepAlive PacketID = 0x18
+	sChatMessage PacketID = 0x05
+	sPlayerPosition PacketID = 0x1A
+	sPlayerPositionRotation PacketID = 0x1B
+	sPlayerRotation PacketID = 0x1C
+	sPlayerMovement PacketID = 0x1D
+	sClientCommand PacketID = 0x07
+	sPluginMessage PacketID = 0x11
 
 	// play_clientbound
 	cKeepAlive PacketID = 0x26
@@ -42,27 +63,6 @@ const (
 	cPlayerInfoRemove PacketID = 0x42
 	cSynchronizePosition PacketID = 0x40
 	cUpdateRecipes PacketID = 0x7E
-
-	// status_clientbound
-	cStatusResponse PacketID = 0x00
-	cStatusPong PacketID = 0x01
-
-	// play_serverbound
-	sKeepAlive PacketID = 0x18
-	sChatMessage PacketID = 0x05
-	sPlayerPosition PacketID = 0x1A
-	sPlayerPositionRotation PacketID = 0x1B
-	sPlayerRotation PacketID = 0x1C
-	sPlayerMovement PacketID = 0x1D
-	sClientCommand PacketID = 0x07
-	sPluginMessage PacketID = 0x11
-
-	// handshake_serverbound
-	sHandshake PacketID = 0x00
-
-	// status_serverbound
-	sStatusRequest PacketID = 0x00
-	sStatusPing PacketID = 0x01
 
 )
 

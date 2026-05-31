@@ -3,10 +3,11 @@
 // Usage:
 //
 //	cd tools/mcproto
-//	go run main.go -version 1.21.4 -output ../../protocol/packetid/v1_21_4.go
+//	go run main.go -version 1.21.4
 //
-// This tool generates packet ID constants as Go code from a Minecraft server JAR
-// or from manual definitions.
+// This tool downloads the Minecraft server JAR, extracts packet IDs from the
+// protocol class files, and generates Go packet ID constants.
+// If JAR download/extraction fails, it falls back to built-in definitions.
 package main
 
 import (
@@ -41,69 +42,16 @@ func main() {
 }
 
 func getDefinitions(version string) []PacketDef {
-	// TODO: Extract packet IDs from the Minecraft server JAR
-	// For now, using manually defined basic packets
-	return []PacketDef{
-		// Handshake (serverbound)
-		{Name: "Handshake", ID: 0x00, State: "handshake", Bound: "serverbound"},
-
-		// Status (serverbound)
-		{Name: "StatusRequest", ID: 0x00, State: "status", Bound: "serverbound"},
-		{Name: "StatusPing", ID: 0x01, State: "status", Bound: "serverbound"},
-
-		// Status (clientbound)
-		{Name: "StatusResponse", ID: 0x00, State: "status", Bound: "clientbound"},
-		{Name: "StatusPong", ID: 0x01, State: "status", Bound: "clientbound"},
-
-		// Login (serverbound)
-		{Name: "LoginStart", ID: 0x00, State: "login", Bound: "serverbound"},
-		{Name: "EncryptionResponse", ID: 0x01, State: "login", Bound: "serverbound"},
-		{Name: "LoginPluginResponse", ID: 0x02, State: "login", Bound: "serverbound"},
-
-		// Login (clientbound)
-		{Name: "LoginDisconnect", ID: 0x00, State: "login", Bound: "clientbound"},
-		{Name: "LoginSuccess", ID: 0x02, State: "login", Bound: "clientbound"},
-		{Name: "SetCompression", ID: 0x03, State: "login", Bound: "clientbound"},
-		{Name: "LoginPluginRequest", ID: 0x04, State: "login", Bound: "clientbound"},
-
-		// Configuration (serverbound) - 1.20.5+
-		{Name: "ConfigAck", ID: 0x00, State: "configuration", Bound: "serverbound"},
-		{Name: "ConfigPluginResponse", ID: 0x01, State: "configuration", Bound: "serverbound"},
-
-		// Configuration (clientbound) - 1.20.5+
-		{Name: "ConfigPluginRequest", ID: 0x00, State: "configuration", Bound: "clientbound"},
-		{Name: "ConfigDisconnect", ID: 0x01, State: "configuration", Bound: "clientbound"},
-		{Name: "FinishConfiguration", ID: 0x02, State: "configuration", Bound: "clientbound"},
-		{Name: "ConfigKeepAlive", ID: 0x03, State: "configuration", Bound: "clientbound"},
-		{Name: "ConfigSyncData", ID: 0x04, State: "configuration", Bound: "clientbound"},
-
-		// Play (serverbound) - KeepAlive
-		{Name: "KeepAlive", ID: 0x18, State: "play", Bound: "serverbound"},
-		{Name: "ChatMessage", ID: 0x05, State: "play", Bound: "serverbound"},
-		{Name: "PlayerPosition", ID: 0x1A, State: "play", Bound: "serverbound"},
-		{Name: "PlayerPositionRotation", ID: 0x1B, State: "play", Bound: "serverbound"},
-		{Name: "PlayerRotation", ID: 0x1C, State: "play", Bound: "serverbound"},
-		{Name: "PlayerMovement", ID: 0x1D, State: "play", Bound: "serverbound"},
-		{Name: "ClientCommand", ID: 0x07, State: "play", Bound: "serverbound"},
-		{Name: "PluginMessage", ID: 0x11, State: "play", Bound: "serverbound"},
-
-		// Play (clientbound) - KeepAlive
-		{Name: "KeepAlive", ID: 0x26, State: "play", Bound: "clientbound"},
-		{Name: "JoinGame", ID: 0x2E, State: "play", Bound: "clientbound"},
-		{Name: "ChatMessage", ID: 0x37, State: "play", Bound: "clientbound"},
-		{Name: "SystemChat", ID: 0x66, State: "play", Bound: "clientbound"},
-		{Name: "Disconnect", ID: 0x1D, State: "play", Bound: "clientbound"},
-		{Name: "PluginMessage", ID: 0x25, State: "play", Bound: "clientbound"},
-		{Name: "ServerData", ID: 0x47, State: "play", Bound: "clientbound"},
-		{Name: "Respawn", ID: 0x44, State: "play", Bound: "clientbound"},
-		{Name: "ChunkData", ID: 0x24, State: "play", Bound: "clientbound"},
-		{Name: "ChunkDataUpdate", ID: 0x5B, State: "play", Bound: "clientbound"},
-		{Name: "BlockUpdate", ID: 0x0A, State: "play", Bound: "clientbound"},
-		{Name: "PlayerInfo", ID: 0x3D, State: "play", Bound: "clientbound"},
-		{Name: "PlayerInfoRemove", ID: 0x42, State: "play", Bound: "clientbound"},
-		{Name: "SynchronizePosition", ID: 0x40, State: "play", Bound: "clientbound"},
-		{Name: "UpdateRecipes", ID: 0x7E, State: "play", Bound: "clientbound"},
+	packets, err := extractPacketIDs(version)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "JAR extraction failed (%v); using fallback definitions\n", err)
+		return fallbackDefinitions()
 	}
+	if len(packets) == 0 {
+		fmt.Fprintf(os.Stderr, "No packets extracted from JAR; using fallback definitions\n")
+		return fallbackDefinitions()
+	}
+	return packets
 }
 
 func generate(packets []PacketDef, version, output string) {
@@ -127,7 +75,7 @@ func generate(packets []PacketDef, version, output string) {
 	for key, defs := range groups {
 		sb.WriteString(fmt.Sprintf("\t// %s\n", key))
 		for _, d := range defs {
-			constName := fmt.Sprintf("%s%s", d.Bound[:1], d.Name) // sHandshake, cKeepAlive
+			constName := fmt.Sprintf("%s%s", d.Bound[:1], d.Name)
 			sb.WriteString(fmt.Sprintf("\t%s PacketID = 0x%02X\n", constName, d.ID))
 		}
 		sb.WriteString("\n")
@@ -141,3 +89,6 @@ func generate(packets []PacketDef, version, output string) {
 		os.Exit(1)
 	}
 }
+
+
+
