@@ -3,11 +3,31 @@
   <img alt="minegate" src="github-assets/img/banner.png">
 </picture>
 
-**minegate** is a high-performance, multi-transport network tunneling library for Minecraft Java Edition.
+**minegate** is a high-performance, multi-transport network tunneling library for Minecraft Java Edition, written in Go.
 
-Written in Go, it combines zero-copy packet forwarding, smart packet batching, advanced flow control, and multiple transport protocols (TCP, TLS, WebSocket, KCP, QUIC, SOCKS5) under a single, consistent API.
+It provides zero-copy packet forwarding, smart packet batching, advanced flow control, and multiple transport backends (TCP, TLS, WebSocket, KCP, QUIC, SOCKS5) under a single, consistent API.
 
 > Inspired by the `net/` package of go-mc, but purpose-built from scratch for tunneling workloads.
+
+---
+
+## Installation
+
+```bash
+go get github.com/<your-username>/minegate
+```
+
+Then import any package into your Go code:
+
+```go
+import "github.com/<your-username>/minegate/packet"
+import "github.com/<your-username>/minegate/conn"
+import "github.com/<your-username>/minegate/tunnel"
+import "github.com/<your-username>/minegate/transport"
+import "github.com/<your-username>/minegate/proxy"
+import "github.com/<your-username>/minegate/crypto"
+import "github.com/<your-username>/minegate/compress"
+```
 
 ---
 
@@ -26,74 +46,128 @@ Written in Go, it combines zero-copy packet forwarding, smart packet batching, a
 
 ---
 
-## Installation
-
-```bash
-go get github.com/<user>/minegate
-```
-
----
-
 ## Quick Start
 
 ### TCP Proxy
+
+Create a simple transparent proxy that forwards players to an upstream server:
 
 ```go
 package main
 
 import (
-    "github.com/<user>/minegate/proxy"
-    "github.com/<user>/minegate/transport"
-    "github.com/<user>/minegate/tunnel"
+    "github.com/<your-username>/minegate/proxy"
+    "github.com/<your-username>/minegate/transport"
+    "github.com/<your-username>/minegate/tunnel"
 )
 
 func main() {
     tcp := &transport.TCPTransport{}
+    
     ln := tunnel.NewListener(tcp)
     ln.Listen(":25577")
 
     dialer := tunnel.NewDialer(tcp)
     p := proxy.NewProxy(ln, dialer)
-    p.Start() // :25577 -> upstream server
+    p.Start()
 }
 ```
 
-### Transports
+### Tunneling over KCP (UDP)
 
-Swap the transport to tunnel Minecraft over any protocol:
+Swap from TCP to KCP for better performance over lossy networks:
 
 ```go
-// KCP (UDP — fast over lossy links)
+import "github.com/<your-username>/minegate/transport"
+
 kcp := transport.NewKCPTransport()
 ln := tunnel.NewListener(kcp)
+ln.Listen(":25577")
+```
 
-// QUIC (0-RTT handshake, built-in TLS)
+### Tunneling over QUIC (0-RTT)
+
+```go
+import "github.com/<your-username>/minegate/transport"
+
 quic := transport.NewQUICTransport(tlsConfig)
 dialer := tunnel.NewDialer(quic)
 conn, _ := dialer.Dial("example.com:25577")
+```
 
-// WebSocket (bypass HTTP proxies)
+### Tunneling over WebSocket
+
+Bypass HTTP proxies by tunneling Minecraft traffic through WebSocket:
+
+```go
+import "github.com/<your-username>/minegate/transport"
+
 ws := transport.NewWSTransport()
+dialer := tunnel.NewDialer(ws)
+```
 
-// SOCKS5 (route through a proxy)
+### Routing through a SOCKS5 Proxy
+
+```go
+import "github.com/<your-username>/minegate/transport"
+
 socks := transport.NewSOCKS5Transport("proxy:1080")
+dialer := tunnel.NewDialer(socks)
 ```
 
 ### Connection Multiplexing
 
+Run multiple Minecraft sessions over a single underlying connection:
+
 ```go
+import "github.com/<your-username>/minegate/tunnel"
+
 mux := tunnel.NewMux(physicalConn)
-stream1, _ := mux.OpenStream() // Player 1
-stream2, _ := mux.OpenStream() // Player 2
-// Both share the same KCP/QUIC/TCP connection
+player1, _ := mux.OpenStream()
+player2, _ := mux.OpenStream()
 ```
 
-### Zero-copy Forwarding
+### Zero-copy Packet Forwarding
+
+Forward raw packet bytes without parsing — the fastest relay path:
 
 ```go
+import "github.com/<your-username>/minegate/packet"
+
 raw, _ := reader.ReadRawPacket()
-// raw.Buf written directly to destination — no parse, no copy
 writer.WritePacket(packet.Packet{ID: raw.PacketID(), Data: raw.Buf[1:]})
+```
+
+### Reading and Writing Packets
+
+```go
+import "github.com/<your-username>/minegate/packet"
+
+// Write
+p := packet.Packet{ID: 0x00, Data: []byte{...}}
+writer.WritePacket(p)
+
+// Read
+pkt, _ := reader.ReadPacket()
+```
+
+### Encryption (CFB8)
+
+```go
+import "github.com/<your-username>/minegate/crypto"
+
+key, _ := crypto.GenerateKey()
+encrypt, decrypt, _ := crypto.CreateCipher(key)
+// Use with conn.SetCipher(encrypt, decrypt)
+```
+
+### Compression
+
+```go
+import "github.com/<your-username>/minegate/compress"
+
+compressed, _ := compress.Compress(data)
+decompressed, _ := compress.Decompress(compressed, maxSize)
 ```
 
 ---
@@ -130,7 +204,13 @@ minegate/
 
 | Package | Purpose |
 |---------|---------|
-| `klauspost/compress` | Fast zlib compression |
-| `xtaci/kcp-go` | KCP (UDP) transport |
-| `quic-go/quic-go` | QUIC transport |
-| `gorilla/websocket` | WebSocket transport |
+| [`klauspost/compress`](https://github.com/klauspost/compress) | Fast zlib compression |
+| [`xtaci/kcp-go`](https://github.com/xtaci/kcp-go) | KCP (UDP) transport |
+| [`quic-go/quic-go`](https://github.com/quic-go/quic-go) | QUIC transport |
+| [`gorilla/websocket`](https://github.com/gorilla/websocket) | WebSocket transport |
+
+---
+
+## License
+
+Apache License 2.0 — see `LICENSE` file for details.
