@@ -5,8 +5,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/user/minegate/packet"
-	"github.com/user/minegate/transport"
+	"github.com/pozii/minegate/packet"
+	"github.com/pozii/minegate/transport"
 )
 
 // Listener is a listener that accepts Minecraft connections.

@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/user/minegate/conn"
-	"github.com/user/minegate/packet"
+	"github.com/pozii/minegate/conn"
+	"github.com/pozii/minegate/packet"
 )
 
 func main() {

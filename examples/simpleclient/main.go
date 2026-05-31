@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/user/minegate/packet"
-	"github.com/user/minegate/tunnel"
-	"github.com/user/minegate/transport"
+	"github.com/pozii/minegate/packet"
+	"github.com/pozii/minegate/tunnel"
+	"github.com/pozii/minegate/transport"
 )
 
 func main() {

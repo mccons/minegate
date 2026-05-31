@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 // MuxType is the multiplexer frame type.

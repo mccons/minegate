@@ -6,10 +6,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/user/minegate/compress"
-	"github.com/user/minegate/crypto"
-	"github.com/user/minegate/internal"
-	"github.com/user/minegate/packet"
+	"github.com/pozii/minegate/compress"
+	"github.com/pozii/minegate/crypto"
+	"github.com/pozii/minegate/internal"
+	"github.com/pozii/minegate/packet"
 )
 
 // MineConn manages a Minecraft connection.

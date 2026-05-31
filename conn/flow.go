@@ -4,7 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 // FlowController provides backpressure and flow control.

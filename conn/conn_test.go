@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/minegate/packet"
+	"github.com/pozii/minegate/packet"
 )
 
 func TestFlowControllerAcquireRelease(t *testing.T) {

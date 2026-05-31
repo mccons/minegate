@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/user/minegate/internal"
-	"github.com/user/minegate/tunnel"
+	"github.com/pozii/minegate/internal"
+	"github.com/pozii/minegate/tunnel"
 )
 
 // Proxy is the core of the Minecraft proxy server.

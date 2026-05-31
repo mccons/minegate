@@ -3,7 +3,8 @@ package packet
 import (
 	"io"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/compress"
+	"github.com/pozii/minegate/internal"
 )
 
 // Packet represents a packet in the Minecraft protocol.
@@ -111,7 +112,11 @@ func (pr *PacketReader) readCompressed(body []byte) (Packet, error) {
 	}
 
 	decompressed := internal.GetBuffer(int(dataLen))
-	pr.decompressPayload(remaining, decompressed)
+	if err := pr.decompressPayload(remaining, decompressed); err != nil {
+		internal.PutBuffer(body)
+		internal.PutBuffer(decompressed)
+		return Packet{}, err
+	}
 
 	id, rawData, err := ReadVarIntFromBytes(decompressed)
 	if err != nil {
@@ -127,8 +132,22 @@ func (pr *PacketReader) readCompressed(body []byte) (Packet, error) {
 	return pkt, nil
 }
 
-func (pr *PacketReader) decompressPayload(src, dst []byte) {
-	copy(dst, src)
+func (pr *PacketReader) decompressPayload(src, dst []byte) error {
+	result, err := compress.Decompress(src, len(dst))
+	if err != nil {
+		return err
+	}
+	n := copy(dst, result)
+	if n < len(dst) {
+		zeroBuffer(dst[n:])
+	}
+	return nil
+}
+
+func zeroBuffer(buf []byte) {
+	for i := range buf {
+		buf[i] = 0
+	}
 }
 
 func (pr *PacketReader) ReadRawPacket() (RawPacket, error) {
@@ -237,7 +256,6 @@ func (pw *PacketWriter) writeCompressed(p Packet, idLen, totalLen int) error {
 	if totalLen < pw.threshold {
 		dataLen := 0
 		lenLen := 1
-		idLen := p.ID.Len()
 		pktLen := lenLen + idLen + len(p.Data)
 		lenOfLen := VarIntLen(int32(pktLen))
 
@@ -251,21 +269,30 @@ func (pw *PacketWriter) writeCompressed(p Packet, idLen, totalLen int) error {
 		return err
 	}
 
-	dataLen := totalLen
-	lenLen := VarIntLen(int32(dataLen))
-	compLen := VarIntLen(int32(dataLen + lenLen))
-	_ = compLen
-	pktLen := lenLen + dataLen
-	_ = pktLen
+	// Build uncompressed payload: [ID VarInt] [Data]
+	payload := internal.GetBuffer(totalLen)
+	m := PutVarInt(payload, int32(p.ID))
+	copy(payload[m:], p.Data)
 
-	buf := internal.GetBuffer(dataLen + lenLen + 8)
-	n := PutVarInt(buf, int32(pktLen))
+	compressed, err := compress.Compress(payload[:m+len(p.Data)])
+	internal.PutBuffer(payload)
+	if err != nil {
+		return err
+	}
+
+	dataLen := totalLen
+	dataLenLen := VarIntLen(int32(dataLen))
+	bodyLen := dataLenLen + len(compressed)
+	packetLenLen := VarIntLen(int32(bodyLen))
+	totalBufLen := packetLenLen + bodyLen
+
+	buf := internal.GetBuffer(totalBufLen)
+	n := PutVarInt(buf, int32(bodyLen))
 	n += PutVarInt(buf[n:], int32(dataLen))
-	n += PutVarInt(buf[n:], int32(p.ID))
-	copy(buf[n:], p.Data)
-	_, err := pw.dst.Write(buf[:n+len(p.Data)])
+	copy(buf[n:], compressed)
+	_, writeErr := pw.dst.Write(buf[:n+len(compressed)])
 	internal.PutBuffer(buf)
-	return err
+	return writeErr
 }
 
 // PacketCodec combines read and write operations.

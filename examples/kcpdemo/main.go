@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/user/minegate/tunnel"
+	"github.com/pozii/minegate/tunnel"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/minegate/internal"
-	"github.com/user/minegate/packet"
+	"github.com/pozii/minegate/internal"
+	"github.com/pozii/minegate/packet"
 )
 
 // BatchWriter performs packet batching.

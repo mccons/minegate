@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/user/minegate/packet"
+	"github.com/pozii/minegate/packet"
 )
 
 func TestBuildAndParseHandshake(t *testing.T) {
@@ -157,12 +157,14 @@ func TestAppendLegacyForwardingIPv6(t *testing.T) {
 func TestCreateVelocityForwardingPacket(t *testing.T) {
 	uuid := [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	ip := net.ParseIP("10.0.0.1")
+	secret := []byte("my-velocity-secret")
 
 	data := ForwardingData{
 		Mode:     ForwardVelocity,
 		UUID:     uuid,
 		IP:       ip,
 		Username: "Player1",
+		Secret:   secret,
 	}
 
 	pkt, err := CreateVelocityForwardingPacket(data)
@@ -178,9 +180,31 @@ func TestCreateVelocityForwardingPacket(t *testing.T) {
 		t.Fatal("forwarding packet data should not be empty")
 	}
 
-	// Verify UUID is at the start
+	// Verify channel prefix: "velocity:player_info"
+	chLen, afterCh, err := packet.ReadVarIntFromBytes(pkt.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	channel := string(afterCh[:chLen])
+	if channel != "velocity:player_info" {
+		t.Errorf("channel: got %q, want %q", channel, "velocity:player_info")
+	}
+
+	// After channel: HMAC(32) + plaintext
+	payload := afterCh[chLen:]
+	if len(payload) < 32 {
+		t.Fatal("payload too short, missing HMAC")
+	}
+
+	// Verify HMAC signature
+	plaintext, valid := ValidateVelocityForwarding(payload, secret)
+	if !valid {
+		t.Fatal("HMAC signature validation failed")
+	}
+
+	// Verify UUID is at start of plaintext
 	var gotUUID [16]byte
-	copy(gotUUID[:], pkt.Data[:16])
+	copy(gotUUID[:], plaintext[:16])
 	if gotUUID != uuid {
 		t.Errorf("UUID mismatch: got %v, want %v", gotUUID, uuid)
 	}

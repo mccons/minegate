@@ -8,7 +8,7 @@ import (
 	"crypto/sha1"
 	"crypto/x509"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 // KeyExchange manages the encryption key exchange used during Minecraft login.

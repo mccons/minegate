@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 // SOCKS5Transport is a SOCKS5 proxy client.

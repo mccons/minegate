@@ -5,9 +5,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/user/minegate/internal"
-	"github.com/user/minegate/packet"
-	"github.com/user/minegate/transport"
+	"github.com/pozii/minegate/internal"
+	"github.com/pozii/minegate/packet"
+	"github.com/pozii/minegate/transport"
 )
 
 // Dialer is used to open connections to a Minecraft server.

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	kzlib "github.com/klauspost/compress/zlib"
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 var (

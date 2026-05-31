@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/user/minegate/internal"
+	"github.com/pozii/minegate/internal"
 )
 
 // String is a length-prefixed UTF-8 string in the Minecraft protocol.
